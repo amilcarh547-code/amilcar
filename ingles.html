@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conditional Battle</title>
+<style>
+  body {
+    font-family: 'Poppins', sans-serif;
+    background: radial-gradient(circle at center, #000, #111);
+    color: #f5f5f5;
+    text-align: center;
+    padding: 20px;
+  }
+  h1 { color: #00e6ff; }
+  button {
+    background-color: #00e6ff;
+    color: #000;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.3s;
+    margin: 8px;
+  }
+  button:hover { transform: scale(1.05); background-color: #00b3cc; }
+  #game {
+    margin-top: 20px;
+    padding: 25px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 15px;
+    box-shadow: 0 0 15px #00e6ff;
+  }
+  input {
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    width: 60%;
+    text-align: center;
+    font-size: 1.1em;
+  }
+  .correct { color: #00ff66; font-weight: bold; }
+  .wrong { color: #ff4040; font-weight: bold; }
+  .scoreboard {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-bottom: 15px;
+    font-weight: bold;
+  }
+  .blue { color: #00bfff; }
+  .red { color: #ff4040; }
+  .progress-bar {
+    background: #333;
+    border-radius: 10px;
+    height: 20px;
+    width: 80%;
+    margin: 15px auto;
+    overflow: hidden;
+  }
+  .progress {
+    background: #00e6ff;
+    height: 100%;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+  #levelTitle {
+    color: #ffeb3b;
+    margin-bottom: 10px;
+    font-size: 1.3em;
+  }
+</style>
+</head>
+<body>
+
+<h1>Conditional Battle ⚔️</h1>
+<p>Blue vs Red. Three levels, different questions, one winner.</p>
+
+<div id="intro">
+  <button onclick="chooseTeam('blue')">Join Blue Team 🔵</button>
+  <button onclick="chooseTeam('red')">Join Red Team 🔴</button>
+</div>
+
+<div id="game"></div>
+
+<audio id="correctSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+<audio id="wrongSound" src="https://actions.google.com/sounds/v1/cartoon/concussive_hit_guitar_boing.ogg"></audio>
+
+<script>
+const questions = {
+  blue: {
+    zero: [
+      {q:"If you heat metal, it ______ (expand).", a:"expands"},
+      {q:"If water reaches 0°C, it ______ (freeze).", a:"freezes"},
+      {q:"If cats are hungry, they ______ (meow).", a:"meow"},
+      {q:"If people don’t sleep, they ______ (get) tired.", a:"get"},
+      {q:"If you mix blue and yellow, you ______ (get) green.", a:"get"}
+    ],
+    first: [
+      {q:"If I go to London, I ______ (visit) Big Ben.", a:"will visit"},
+      {q:"If we study hard, we ______ (pass) the test.", a:"will pass"},
+      {q:"If it rains, we ______ (stay) inside.", a:"will stay"},
+      {q:"If she calls, I ______ (answer).", a:"will answer"},
+      {q:"If I see John, I ______ (tell) him the truth.", a:"will tell"}
+    ],
+    second: [
+      {q:"If I had a car, I ______ (drive) to the beach.", a:"would drive"},
+      {q:"If she were rich, she ______ (travel) the world.", a:"would travel"},
+      {q:"If I knew his number, I ______ (call) him.", a:"would call"},
+      {q:"If we lived in Paris, we ______ (speak) French.", a:"would speak"},
+      {q:"If I were invisible, I ______ (sneak) into concerts.", a:"would sneak"}
+    ]
+  },
+  red: {
+    zero: [
+      {q:"If you drop an object, it ______ (fall).", a:"falls"},
+      {q:"If dogs see food, they ______ (bark).", a:"bark"},
+      {q:"If snow melts, it ______ (turn) into water.", a:"turns"},
+      {q:"If people drink too much coffee, they ______ (stay) awake.", a:"stay"},
+      {q:"If you press the button, the light ______ (turn) on.", a:"turns"}
+    ],
+    first: [
+      {q:"If I see a snake, I ______ (run) away.", a:"will run"},
+      {q:"If he studies, he ______ (get) good grades.", a:"will get"},
+      {q:"If it’s sunny, we ______ (go) swimming.", a:"will go"},
+      {q:"If they hurry, they ______ (catch) the bus.", a:"will catch"},
+      {q:"If you help me, I ______ (finish) faster.", a:"will finish"}
+    ],
+    second: [
+      {q:"If I were taller, I ______ (play) basketball.", a:"would play"},
+      {q:"If we had more time, we ______ (visit) you.", a:"would visit"},
+      {q:"If it snowed here, we ______ (build) a snowman.", a:"would build"},
+      {q:"If she had a dog, she ______ (walk) it every day.", a:"would walk"},
+      {q:"If I found a wallet, I ______ (return) it.", a:"would return"}
+    ]
+  }
+};
+
+let team = null;
+let levelIndex = 0;
+let questionIndex = 0;
+let scores = {blue: 0, red: 0};
+
+const levels = ["zero", "first", "second"];
+
+function chooseTeam(selected) {
+  team = selected;
+  document.getElementById("intro").style.display = "none";
+  startLevel();
+}
+
+function startLevel() {
+  questionIndex = 0;
+  showQuestion();
+}
+
+function showQuestion() {
+  const currentLevel = levels[levelIndex];
+  const currentSet = questions[team][currentLevel];
+  const q = currentSet[questionIndex];
+  const progressPercent = (questionIndex / currentSet.length) * 100;
+  
+  document.getElementById("game").innerHTML = `
+    <div class="scoreboard">
+      <div class="blue">Blue: ${scores.blue}</div>
+      <div class="red">Red: ${scores.red}</div>
+    </div>
+    <div id="levelTitle">Level ${levelIndex + 1}: ${currentLevel.toUpperCase()} CONDITIONAL</div>
+    <div class="progress-bar"><div class="progress" style="width:${progressPercent}%"></div></div>
+    <p><b>${q.q}</b></p>
+    <input id="answer" type="text" placeholder="Type your answer">
+    <br><button onclick="checkAnswer()">Submit</button>
+    <p id="feedback"></p>
+  `;
+}
+
+function checkAnswer() {
+  const correctSound = document.getElementById("correctSound");
+  const wrongSound = document.getElementById("wrongSound");
+  const currentLevel = levels[levelIndex];
+  const q = questions[team][currentLevel][questionIndex];
+  const userAnswer = document.getElementById("answer").value.trim().toLowerCase();
+  const feedback = document.getElementById("feedback");
+
+  if (userAnswer === q.a.toLowerCase()) {
+    feedback.innerHTML = `<span class="correct">✅ Correct!</span>`;
+    scores[team]++;
+    correctSound.play();
+  } else {
+    feedback.innerHTML = `<span class="wrong">❌ Wrong! Correct: "${q.a}"</span>`;
+    wrongSound.play();
+  }
+
+  questionIndex++;
+  setTimeout(() => {
+    if (questionIndex < questions[team][currentLevel].length) {
+      showQuestion();
+    } else if (levelIndex < levels.length - 1) {
+      levelIndex++;
+      document.getElementById("game").innerHTML = `
+        <h2>Level Complete!</h2>
+        <p>Scoreboard:</p>
+        <div class="scoreboard">
+          <div class="blue">Blue: ${scores.blue}</div>
+          <div class="red">Red: ${scores.red}</div>
+        </div>
+        <button onclick="startLevel()">Next Level</button>
+      `;
+    } else {
+      showFinalScore();
+    }
+  }, 1000);
+}
+
+function showFinalScore() {
+  let winner = "It's a tie!";
+  if (scores.blue > scores.red) winner = "🔵 Blue Team Wins!";
+  else if (scores.red > scores.blue) winner = "🔴 Red Team Wins!";
+  
+  document.getElementById("game").innerHTML = `
+    <h2>🏁 Game Over!</h2>
+    <p>Final Scores:</p>
+    <div class="scoreboard">
+      <div class="blue">Blue: ${scores.blue}</div>
+      <div class="red">Red: ${scores.red}</div>
+    </div>
+    <h2>${winner}</h2>
+    <button onclick="location.reload()">Play Again</button>
+  `;
+}
+</script>
+
+</body>
+</html>
